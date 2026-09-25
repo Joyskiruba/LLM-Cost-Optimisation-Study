@@ -1,0 +1,7 @@
+config,cost_per_1000_requests,cache_hit_rate,pct_requests_on_mini,quality_accuracy,n_requests
+0_baseline,0.913,,0.0,0.941,1000
+1_shorter_prompt_and_context,0.4858,,0.0,0.96,1000
+2_add_model_routing,0.0463,,0.959,0.863,1000
+2b_caching_no_routing_ablation,0.0182,0.959,0.0,0.96,1000
+3_add_caching,0.0024,0.959,0.959,0.863,1000
+4_add_batching_FINAL,0.0022,0.959,0.959,0.863,1000
