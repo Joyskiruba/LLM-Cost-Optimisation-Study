@@ -1,0 +1,341 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>LLM Cost Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: KPI strip, controls + filters, three chapters (charts respond to clicks), spotlight, editable data table */
+:root{
+  --bg:#f3f6f8; --card:#ffffff; --fg:#0b1f33; --muted:#5b6b7a; --line:#dbe3ea;
+  --teal:#12a4a0; --coral:#e8563a; --amber:#e9a624; --navy:#0b1f33; --good:#12805c; --bad:#c2412d;
+  --ctl:#fff6d6; --ctl-line:#e9c85a; --band:#0b1f33; --bandfg:#ffffff; --sel:rgba(18,164,160,.14);
+  --c0:#e8563a; --c1:#12a4a0; --c2:#e9a624; --c3:#5b6b7a; --c4:#3b5bdb; --c5:#9b3fb5; --c6:#2f9e44; --c7:#c2255c;
+  --head:'Space Grotesk','Inter',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620; --card:#142230; --fg:#e8eef4; --muted:#93a4b4; --line:#26384a;
+  --teal:#2cc3bf; --coral:#ff7a5f; --amber:#f5b841; --navy:#e8eef4; --good:#4fd1a1; --bad:#ff8f7a;
+  --ctl:#3a3417; --ctl-line:#8a7424; --band:#0a121a; --bandfg:#e8eef4; --sel:rgba(44,195,191,.2);
+  --c0:#ff7a5f; --c1:#2cc3bf; --c2:#f5b841; --c3:#9aa9b8; --c4:#7f98ff; --c5:#d28be6; --c6:#6fd18a; --c7:#ff7fae; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1620; --card:#142230; --fg:#e8eef4; --muted:#93a4b4; --line:#26384a;
+  --teal:#2cc3bf; --coral:#ff7a5f; --amber:#f5b841; --navy:#e8eef4; --good:#4fd1a1; --bad:#ff8f7a;
+  --ctl:#3a3417; --ctl-line:#8a7424; --band:#0a121a; --bandfg:#e8eef4; --sel:rgba(44,195,191,.2);
+  --c0:#ff7a5f; --c1:#2cc3bf; --c2:#f5b841; --c3:#9aa9b8; --c4:#7f98ff; --c5:#d28be6; --c6:#6fd18a; --c7:#ff7fae; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{background:var(--band);color:var(--bandfg);border-radius:6px;padding:22px 24px}
+h1{font:700 26px/1.2 var(--head);margin:0 0 6px;text-wrap:balance}
+header p{margin:0;opacity:.8;max-width:75ch}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--c);border-radius:6px;padding:14px 16px;min-width:0}
+.kpi .l{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi .v{font:700 30px/1.2 var(--head);color:var(--c);font-variant-numeric:tabular-nums;margin-top:4px}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.ctl{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+.ctl h2,.chap{font:600 11px/1 var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+.ctls{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end}
+.ctls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+.ctls input[type=number],.ctls select{font:600 14px var(--body);color:var(--fg);border:1px solid var(--ctl-line);border-radius:4px;padding:7px 10px;min-width:150px;background:var(--ctl)}
+.ctls .flt select{background:var(--card);border-color:var(--line)}
+.chk{flex-direction:row!important;align-items:center;gap:8px!important;font-size:13px!important;color:var(--fg)!important;padding-bottom:8px;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--teal)}
+button{font:600 13px var(--body);color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:4px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--teal)} button.pri{background:var(--teal);border-color:var(--teal);color:#06201f}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.hint{margin:0;font-size:12px;color:var(--muted)}
+.chapter{display:flex;flex-direction:column;gap:12px}
+.chapter .chap{display:block;background:var(--band);color:var(--bandfg);padding:10px 14px;border-radius:4px}
+.story{margin:0;max-width:85ch;font-size:15px;text-wrap:pretty}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:12px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+figcaption{font:600 14px var(--head);margin-bottom:6px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{fill:var(--muted);font:11px var(--body)}
+svg .t{fill:var(--fg);font-weight:600}
+svg .hit{fill:transparent;cursor:pointer}
+svg g.row:focus{outline:none} svg g.row:focus-visible .hit{stroke:var(--teal);stroke-width:2}
+.lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:8px}
+.lg button{border:0;background:none;padding:2px 4px;font:500 12px var(--body);color:var(--muted);display:inline-flex;align-items:center;gap:6px;border-radius:3px}
+.lg button.on{color:var(--fg);font-weight:700;background:var(--sel)}
+.lg i{display:inline-block;width:10px;height:10px;border-radius:50%}
+.lg i.sq{border-radius:2px}
+.empty{padding:28px 8px;text-align:center;color:var(--muted)}
+.reco{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px}
+.reco p{margin:0;padding:16px 18px;border-radius:6px;font-weight:600;font-size:14.5px;border:1px solid var(--line);background:var(--card)}
+.reco p:first-child{border-left:5px solid var(--teal)} .reco p:last-child{border-left:5px solid var(--amber)}
+.spot{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.spot div{min-width:0}.spot .l{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.spot .v{font:700 20px var(--head);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;min-width:980px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}
+tr.sel td{background:var(--sel)} tr.off td{opacity:.5}
+tr.off td:last-child,tr.off td:nth-last-child(-n+8) input{opacity:1}
+td input{width:96px;text-align:right;font:500 13px var(--body);color:var(--fg);background:var(--ctl);border:1px solid var(--ctl-line);border-radius:3px;padding:4px 6px}
+td input.nm{width:190px;text-align:left} td input.mx{width:120px;text-align:left}
+td button{padding:3px 9px} td .id{color:var(--muted);font-size:12px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+details{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 14px;font-size:13px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:600;color:var(--fg)} details p{margin:8px 0 0;max-width:90ch}
+#tip{position:fixed;z-index:50;pointer-events:none;background:var(--band);color:var(--bandfg);border-radius:6px;padding:9px 11px;font-size:12px;line-height:1.5;max-width:240px;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0}
+#tip b{font:700 13px var(--head);display:block;margin-bottom:2px}
+#tip .w{color:#ffb4a5}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>LLM Cost vs Quality Dashboard</h1>
+    <p>Cutting the cost of a policy Q&amp;A feature (PolicyBot) without losing answer quality. Filter, sort and edit below. Click any bar or dot to spotlight a configuration.</p>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="ctl" aria-label="Controls and filters">
+    <h2>Controls</h2>
+    <div class="ctls">
+      <label for="tol">Max accuracy drop allowed (pts)<input id="tol" type="number" min="0" max="50" step="0.5" value="2"></label>
+      <label for="vol">Requests per month<input id="vol" type="number" min="0" step="100000" value="1000000"></label>
+      <label for="spot">Spotlight configuration<select id="spot"></select></label>
+    </div>
+    <h2>Filters</h2>
+    <div class="ctls flt">
+      <label for="mix">Model mix<select id="mix"></select></label>
+      <label for="sort">Sort charts by<select id="sort">
+        <option value="order">Table order</option><option value="cost">Cost (lowest first)</option>
+        <option value="acc">Accuracy (highest first)</option><option value="val">Value score (highest first)</option></select></label>
+      <label class="chk" for="only"><input id="only" type="checkbox"> Only configurations inside the accuracy limit</label>
+      <button id="reset" type="button">Reset to original data</button>
+    </div>
+    <p class="hint" id="shown"></p>
+  </section>
+
+  <section class="chapter">
+    <h2 class="chap">Chapter 1 · The problem and the experiments</h2>
+    <p class="story" id="s1"></p>
+    <div class="charts">
+      <figure><figcaption>Cost per 1,000 requests ($, log scale)</figcaption><div id="c1"></div></figure>
+      <figure><figcaption>Accuracy (axis starts at 80%)</figcaption><div id="c2"></div></figure>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <h2 class="chap">Chapter 2 · The trade-off</h2>
+    <p class="story" id="s2"></p>
+    <div class="charts">
+      <figure><figcaption>Cost vs accuracy: top-left is the sweet spot</figcaption><div id="c3"></div></figure>
+      <figure><figcaption>Share of requests handled cheaply</figcaption><div id="c4"></div></figure>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <h2 class="chap">Chapter 3 · The recommendation and the impact</h2>
+    <div class="reco"><p id="r1"></p><p id="r2"></p></div>
+  </section>
+
+  <section class="chapter">
+    <h2 class="chap">Spotlight · click a chart or pick one in the dropdown</h2>
+    <div class="spot" id="spotcards"></div>
+  </section>
+
+  <section class="chapter">
+    <h2 class="chap">Experiment data · edit the yellow cells, add or remove rows</h2>
+    <div class="tw"><table id="tbl"></table></div>
+    <div class="tools"><button id="add" type="button" class="pri">+ Add configuration</button>
+      <span class="hint">The first row is the baseline. Faded rows are hidden from the charts by the filters.</span></div>
+    <p class="hint">Costs are modeled from OpenAI's published per-token pricing and a simulated 1,000-request traffic sample, not a live API bill. Accuracy = answer correctness vs 38 gold answers. Source: LLM Cost Optimisation Study.</p>
+    <details><summary>Notes and assumptions</summary>
+      <p>Cache hit rates left blank in the study results are entered as 0%. Config 2b is the caching-without-routing ablation.</p>
+      <p>Token counts are estimated at about 1.3 tokens per word, with gpt-4o and gpt-4o-mini prices checked in September 2026. gpt-4o and gpt-4o-mini are stood in for by strong and weak generators (no live model calls).</p>
+      <p>Traffic is 1,000 simulated requests from a 41-question set with a Zipf-shaped repeat distribution, a stated assumption because real production logs were not available.</p>
+      <p>Value score = accuracy points ÷ cost per 1,000 requests. Accuracy change is in percentage points vs the baseline. Cost charts use a log scale because costs span about 400x.</p>
+    </details>
+  </section>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const ORIGINAL=[
+ {id:'0', name:'Baseline',              mix:'gpt-4o',        cost:0.913,  cache:0,    mini:0,    acc:94.1},
+ {id:'1', name:'Short prompt + top-1',  mix:'gpt-4o',        cost:0.4858, cache:0,    mini:0,    acc:96},
+ {id:'2', name:'+ Routing',             mix:'gpt-4o + mini', cost:0.0463, cache:0,    mini:95.9, acc:86.3},
+ {id:'2b',name:'Short prompt + caching',mix:'gpt-4o',        cost:0.0182, cache:95.9, mini:0,    acc:96},
+ {id:'3', name:'+ Routing + caching',   mix:'gpt-4o + mini', cost:0.0024, cache:95.9, mini:95.9, acc:86.3},
+ {id:'4', name:'Final (+ batching)',    mix:'gpt-4o + mini', cost:0.0022, cache:95.9, mini:95.9, acc:86.3}];
+let rows=JSON.parse(JSON.stringify(ORIGINAL)), selId='+ Routing', nextN=1;
+selId=rows[2].id;
+const $=id=>document.getElementById(id), fmt=n=>Math.round(n).toLocaleString('en-US');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fc=v=>'$'+v.toFixed(4), pc=(x,d=1)=>(x*100).toFixed(d)+'%', sp=(x,d=1)=>(Math.abs(x)<0.05?'0.0':(x>0?'+':'')+x.toFixed(d));
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let C=null; // latest calculation
+
+function calc(){
+  const tol=Math.max(0,parseFloat($('tol').value)||0), vol=Math.max(0,parseFloat($('vol').value)||0);
+  const mix=$('mix').value, only=$('only').checked, sort=$('sort').value, b=rows[0];
+  const all=rows.map((r,i)=>{
+    const dq=r.acc-b.acc;
+    return {...r,i,sv:b.cost?1-r.cost/b.cost:0,dq,val:r.cost>0?r.acc/r.cost:0,ok:dq>=-tol-1e-9};
+  });
+  all.forEach(r=>r.vis=r.i===0||((mix==='all'||r.mix===mix)&&(!only||r.ok)));
+  let vis=all.filter(r=>r.vis);
+  const view=vis.slice();
+  if(sort==='cost')view.sort((a,c)=>a.cost-c.cost);
+  if(sort==='acc')view.sort((a,c)=>c.acc-a.acc);
+  if(sort==='val')view.sort((a,c)=>c.val-a.val);
+  let best;
+  best=vis.filter(r=>r.ok).reduce((m,r)=>r.val>m.val?r:m,vis[0]);
+  const cheap=vis.reduce((m,r)=>r.cost<m.cost?r:m,vis[0]);
+  const spot=all.find(r=>r.id===selId)||all[Math.min(1,all.length-1)];
+  return {all,vis,view,tol,vol,b:all[0],best,cheap,spot,mix,
+    monthly:(all[0].cost-best.cost)/1000*vol, base:all[0].cost/1000*vol};
+}
+
+/* ---------- tooltip + selection ---------- */
+const tip=$('tip');
+function showTip(i,ev){
+  const r=C.all[i];if(!r)return;
+  tip.innerHTML=`<b>${esc(r.name)}</b>${esc(r.mix)}<br>Cost: ${fc(r.cost)} per 1,000<br>Accuracy: ${r.acc.toFixed(1)}% (${sp(r.dq)} pts)<br>Saved: ${pc(r.sv)}<br>Value score: ${fmt(r.val)}<br>Cache hit ${r.cache.toFixed(1)}% · on mini ${r.mini.toFixed(1)}%`+(r.ok?'':'<br><span class="w">Outside the accuracy limit</span>');
+  tip.style.opacity=1;
+  const w=tip.offsetWidth,h=tip.offsetHeight;
+  let x=ev.clientX+14,y=ev.clientY+14;
+  if(x+w>innerWidth-8)x=ev.clientX-w-14; if(y+h>innerHeight-8)y=ev.clientY-h-14;
+  tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,y)+'px';
+}
+function select(id){selId=id;$('spot').value=id;render()}
+document.addEventListener('pointermove',e=>{const t=e.target.closest&&e.target.closest('[data-i]');t?showTip(+t.dataset.i,e):tip.style.opacity=0});
+document.addEventListener('pointerleave',()=>tip.style.opacity=0);
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-i]');if(t&&C.all[+t.dataset.i])select(C.all[+t.dataset.i].id)});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('[data-i]')){e.preventDefault();select(C.all[+e.target.dataset.i].id)}});
+
+/* ---------- charts ---------- */
+const colorOf=i=>cv('--c'+(i%8));
+function wrapName(t,n){const w=t.split(' '),o=[''];w.forEach(x=>{const l=o[o.length-1];if((l+' '+x).trim().length>n&&l)o.push(x);else o[o.length-1]=(l+' '+x).trim()});
+  if(o.length>2){o.length=2;o[1]=o[1].slice(0,n-1)+'…'}return o}
+function empty(el){$(el).innerHTML='<div class="empty">No configurations match the filters.</div>'}
+function ticksFor(a){return a.ticks}
+/* horizontal grouped bars; series = [{key, color(r), label(v)}] */
+function hbars(el,view,series,ax,aria){
+  if(!view.length)return empty(el);
+  const W=Math.max(280,$(el).clientWidth||480), LW=Math.min(165,Math.round(W*.36)), RP=58, T=8, B=26;
+  const bh=series.length>1?14:22, rowH=bh*series.length+16, H=T+rowH*view.length+B;
+  const lo=ax.log?Math.log10(ax.min):ax.min, hi=ax.log?Math.log10(ax.max):ax.max;
+  const X=v=>LW+(W-LW-RP)*((ax.log?Math.log10(Math.max(v,ax.min)):v)-lo)/(hi-lo);
+  let s='';
+  ax.ticks.forEach(t=>{s+=`<line x1="${X(t)}" x2="${X(t)}" y1="${T}" y2="${H-B}" stroke="${cv('--line')}"/><text x="${X(t)}" y="${H-B+15}" text-anchor="middle">${ax.f(t)}</text>`});
+  view.forEach((r,k)=>{
+    const y0=T+k*rowH, sel=r.id===C.spot.id, lines=wrapName(r.name,Math.floor((LW-10)/6.2));
+    s+=`<g class="row" data-i="${r.i}" tabindex="0" role="button" aria-label="${esc(r.name)}: ${series.map(q=>q.label(r[q.key])).join(', ')}">`;
+    if(sel)s+=`<rect x="0" y="${y0}" width="${W}" height="${rowH}" rx="4" fill="${cv('--sel')}"/>`;
+    s+=lines.map((l,j)=>`<text class="${sel?'t':''}" x="${LW-8}" y="${y0+rowH/2+4+(j-(lines.length-1)/2)*13}" text-anchor="end">${esc(l)}</text>`).join('');
+    series.forEach((q,j)=>{
+      const v=r[q.key], x1=X(v), y=y0+8+j*bh, op=r.ok?1:.4;
+      s+=`<rect x="${LW}" y="${y}" width="${Math.max(2,x1-LW)}" height="${bh-3}" rx="2" fill="${q.color(r)}" opacity="${op}"/>
+          <text class="t" x="${x1+5}" y="${y+bh-5}" opacity="${op}">${q.label(v)}</text>`;
+    });
+    s+=`<rect class="hit" x="0" y="${y0}" width="${W}" height="${rowH}"/></g>`;
+  });
+  $(el).innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${aria}">${s}</svg>`;
+}
+function decades(min,max){const a=Math.floor(Math.log10(min*.8)),b=Math.ceil(Math.log10(max*1.15)),t=[];for(let e=a;e<=b;e++)t.push(Math.pow(10,e));return t}
+const costTick=v=>'$'+v.toFixed(Math.max(0,Math.round(-Math.log10(v))));
+function scatter(){
+  const {all,vis,best}=C;
+  if(!vis.length)return empty('c3');
+  const W=Math.max(280,$('c3').clientWidth||480),H=300,M={l:46,r:16,t:14,b:50};
+  const cs=vis.map(r=>Math.max(r.cost,1e-6)), tk=decades(Math.min(...cs),Math.max(...cs)), lo=Math.log10(tk[0]), hi=Math.log10(tk[tk.length-1]);
+  const accs=vis.map(r=>r.acc), ymin=Math.min(80,Math.floor((Math.min(...accs)-2)/5)*5), ymax=100;
+  const X=v=>M.l+(W-M.l-M.r)*(Math.log10(Math.max(v,1e-6))-lo)/(hi-lo), Y=v=>M.t+(H-M.t-M.b)*(1-(Math.min(v,ymax)-ymin)/(ymax-ymin));
+  let s='';
+  for(let v=ymin;v<=ymax;v+=5)s+=`<line x1="${M.l}" x2="${W-M.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${cv('--line')}"/><text x="${M.l-8}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+  tk.forEach(t=>s+=`<line x1="${X(t)}" x2="${X(t)}" y1="${M.t}" y2="${H-M.b}" stroke="${cv('--line')}"/><text x="${X(t)}" y="${H-M.b+15}" text-anchor="middle">${costTick(t)}</text>`);
+  s+=`<text x="${M.l+(W-M.l-M.r)/2}" y="${H-8}" text-anchor="middle">Cost per 1,000 requests ($, log scale)</text>
+      <text transform="translate(12 ${M.t+(H-M.t-M.b)/2}) rotate(-90)" text-anchor="middle">Accuracy (%)</text>`;
+  vis.forEach(r=>{const cx=X(r.cost),cy=Y(r.acc),sel=r.id===C.spot.id,rad=r===best?10:8;
+    s+=`<g data-i="${r.i}" tabindex="0" role="button" aria-label="${esc(r.name)}: ${fc(r.cost)}, accuracy ${r.acc.toFixed(1)}%">
+      ${sel?`<circle cx="${cx}" cy="${cy}" r="${rad+6}" fill="none" stroke="${cv('--fg')}" stroke-width="2"/>`:''}
+      <circle cx="${cx}" cy="${cy}" r="${rad}" fill="${colorOf(r.i)}" stroke="${cv('--card')}" stroke-width="2" opacity="${r.ok?1:.4}"/>
+      <circle class="hit" cx="${cx}" cy="${cy}" r="16"/></g>`});
+  $('c3').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Scatter of cost versus accuracy">${s}</svg>
+    <div class="lg">${vis.map(r=>`<button type="button" data-i="${r.i}" class="${r.id===C.spot.id?'on':''}"><i style="background:${colorOf(r.i)}"></i>${esc(r.name)}${r===best?' (recommended)':''}</button>`).join('')}</div>`;
+}
+function charts(){
+  const {view,vis}=C;
+  const maxC=Math.max(...vis.map(r=>Math.max(r.cost,1e-6))), minC=Math.min(...vis.map(r=>Math.max(r.cost,1e-6)));
+  const tk=decades(minC,maxC);
+  hbars('c1',view,[{key:'cost',color:r=>r.i===0?cv('--coral'):cv('--teal'),label:fc}],
+    {log:true,min:tk[0],max:tk[tk.length-1],ticks:tk,f:costTick},'Cost per 1,000 requests by configuration');
+  const amin=Math.min(80,Math.floor((Math.min(...vis.map(r=>r.acc))-2)/5)*5), at=[];for(let v=amin;v<=100;v+=5)at.push(v);
+  hbars('c2',view,[{key:'acc',color:r=>r.i===0?cv('--amber'):cv('--navy'),label:v=>v.toFixed(1)+'%'}],
+    {min:amin,max:100,ticks:at,f:v=>v+'%'},'Accuracy by configuration');
+  scatter();
+  hbars('c4',view,[{key:'cache',color:()=>cv('--teal'),label:v=>v.toFixed(1)+'%'},{key:'mini',color:()=>cv('--amber'),label:v=>v.toFixed(1)+'%'}],
+    {min:0,max:100,ticks:[0,25,50,75,100],f:v=>v+'%'},'Cache hit rate and share of requests on gpt-4o-mini');
+  if(view.length)$('c4').insertAdjacentHTML('beforeend',`<div class="lg"><span><i class="sq" style="background:${cv('--teal')}"></i> Cache hit rate</span><span><i class="sq" style="background:${cv('--amber')}"></i> Requests on gpt-4o-mini</span></div>`);
+}
+
+/* ---------- text, cards, table ---------- */
+function render(){
+  C=calc();const {all,vis,b,best,cheap,spot,tol,vol}=C;
+  const tl=tol.toFixed(1), none=best===b;
+  $('kpis').innerHTML=[
+   ['Baseline cost / 1,000 requests',fc(b.cost),`Setup: ${esc(b.name)} (${esc(b.mix)})`,'--coral'],
+   ['Optimised cost / 1,000 requests',fc(best.cost),esc(best.name),'--teal'],
+   ['Cost saved',pc(best.sv),`${fc(b.cost-best.cost)} saved per 1,000 requests`,'--good'],
+   ['Accuracy change',sp(best.dq)+' pts',`Allowed drop: up to ${tl} pts`,'--navy']
+  ].map(k=>`<div class="kpi" style="--c:var(${k[3]})"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
+  $('shown').textContent=`Showing ${vis.length} of ${all.length} configurations. The baseline is always shown. Faded bars and dots are outside the accuracy limit.`;
+  $('s1').textContent=`LLM bills grow with every request. My baseline costs ${fc(b.cost)} per 1,000 requests at ${b.acc.toFixed(1)}% accuracy. At ${fmt(vol)} requests a month that is a $${fmt(C.base)} monthly bill. Can I cut it without hurting the answers? I compared ${all.length-1} configurations on a simulated 1,000-request traffic sample.`;
+  if(cheap===b)$('s2').textContent=`Cheaper is not always better. Among the configurations shown, the baseline is already the cheapest option. The sweet spot is the top-left of the scatter plot: low cost, high accuracy.`;
+  else $('s2').textContent=`Cheaper is not always better. The cheapest option, ${cheap.name}, costs only ${fc(cheap.cost)} per 1,000 requests, but accuracy changes by ${sp(cheap.dq)} points`+
+    (cheap.dq<-tol-1e-9?`, beyond the ${tl}-point drop I am willing to accept, so it is ruled out. Raise the tolerance above ${Math.abs(cheap.dq).toFixed(1)} points to let it win.`:`, inside my ${tl}-point limit.`)+` The sweet spot is the top-left of the scatter plot: low cost, high accuracy.`;
+  $('r1').textContent=none?`RECOMMENDATION: no configuration shown beats the baseline inside the ${tl}-point accuracy tolerance. Raise the tolerance or relax the filters.`:
+    `RECOMMENDATION: adopt ${best.name}. It lowers cost from ${fc(b.cost)} to ${fc(best.cost)} per 1,000 requests (${pc(best.sv)} saved) while accuracy moves ${sp(best.dq)} points. It is the best value inside the ${tl}-point accuracy tolerance.`;
+  $('r2').textContent=`IMPACT: at ${fmt(vol)} requests a month this saves about $${fmt(C.monthly)} per month, or $${fmt(C.monthly*12)} a year (modeled from published pricing). Raise the tolerance to see how far model routing could take it.`;
+  const cl=v=>v>0.0005?'pos':v<-0.0005?'neg':'';
+  $('spotcards').innerHTML=[['Configuration',esc(spot.name),''],['Cost / 1,000 requests',fc(spot.cost),''],['Cost saved',pc(spot.sv),cl(spot.sv)],
+    ['Accuracy change',sp(spot.dq)+' pts',cl(spot.dq)],['Cache hit rate',spot.cache.toFixed(1)+'%',''],['Value score',fmt(spot.val),'']]
+    .map(k=>`<div><div class="l">${k[0]}</div><div class="v ${k[2]}">${k[1]}</div></div>`).join('');
+  charts();updateTable();
+}
+function buildTable(){
+  const f=[['name','Configuration','nm','text'],['mix','Model mix','mx','text'],['cost','Cost / 1,000 ($)','','number'],['cache','Cache hit (%)','','number'],['mini','On mini (%)','','number'],['acc','Accuracy (%)','','number']];
+  $('tbl').innerHTML='<thead><tr><th>ID</th>'+f.map(x=>`<th>${x[1]}</th>`).join('')+'<th>Saved</th><th>Δ pts</th><th>Value</th><th></th></tr></thead><tbody>'+
+   rows.map((r,i)=>`<tr id="tr${i}"><td><span class="id">${esc(r.id)}</span></td>`+f.map(x=>`<td><input id="in-${i}-${x[0]}" class="${x[2]}" type="${x[3]}" ${x[3]==='number'?'step="any" min="0"':''} value="${esc(r[x[0]])}" aria-label="${x[1]} for ${esc(r.name)}"></td>`).join('')+
+     `<td id="d${i}s"></td><td id="d${i}q"></td><td id="d${i}v"></td><td>${i?`<button type="button" data-del="${i}" aria-label="Remove ${esc(r.name)}">Remove</button>`:'<span class="id">baseline</span>'}</td></tr>`).join('')+'</tbody>';
+}
+function updateTable(){
+  C.all.forEach((r,i)=>{const tr=$('tr'+i);if(!tr)return;tr.className=(r.id===C.spot.id?'sel ':'')+(r.vis?'':'off');
+    $(`d${i}s`).textContent=pc(r.sv);$(`d${i}q`).textContent=sp(r.dq);$(`d${i}v`).textContent=fmt(r.val)});
+}
+function syncOptions(){
+  const cur=selId;$('spot').innerHTML=rows.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+  if(rows.some(r=>r.id===cur))$('spot').value=cur;else{selId=rows[Math.min(1,rows.length-1)].id;$('spot').value=selId}
+  const m=$('mix'),cm=m.value||'all',mixes=[...new Set(rows.map(r=>r.mix))];
+  m.innerHTML='<option value="all">All</option>'+mixes.map(x=>`<option>${esc(x)}</option>`).join('');
+  m.value=mixes.includes(cm)||cm==='all'?cm:'all';
+}
+$('tbl').addEventListener('input',e=>{
+  const m=/^in-(\d+)-(\w+)$/.exec(e.target.id);if(!m)return;const k=m[2],v=e.target.value;
+  rows[+m[1]][k]=(k==='name'||k==='mix')?v:Math.max(0,parseFloat(v)||0);
+  if(k==='name'||k==='mix')syncOptions();render();
+});
+$('tbl').addEventListener('click',e=>{const d=e.target.closest('[data-del]');if(!d)return;rows.splice(+d.dataset.del,1);syncOptions();buildTable();render()});
+$('add').onclick=()=>{const l=rows[rows.length-1];rows.push({id:'n'+nextN++,name:'New configuration',mix:l.mix,cost:l.cost,cache:l.cache,mini:l.mini,acc:l.acc});
+  selId=rows[rows.length-1].id;syncOptions();buildTable();render();const el=$('in-'+(rows.length-1)+'-name');el&&el.focus()};
+$('reset').onclick=()=>{rows=JSON.parse(JSON.stringify(ORIGINAL));nextN=1;$('tol').value=2;$('vol').value=1000000;$('mix').value='all';$('sort').value='order';$('only').checked=false;
+  selId=rows[2].id;syncOptions();buildTable();render()};
+['tol','vol'].forEach(id=>$(id).oninput=render);
+['mix','sort','only'].forEach(id=>$(id).onchange=render);
+$('spot').onchange=e=>select(e.target.value);
+syncOptions();buildTable();render();
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(C)charts()},120)});
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',render);
+new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>
+
+</body></html>
