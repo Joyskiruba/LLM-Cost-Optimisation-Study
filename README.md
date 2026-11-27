@@ -4,6 +4,8 @@ Baseline cost per 1,000 requests, three-plus optimisations applied, quality
 measured before/after each, and a final recommendation with the trade-off
 stated. Built on the same policy-doc Q&A feature as the RAG Evaluation Suite.
 
+Interactive dashboard: https://joyskiruba.github.io/LLM-Cost-Optimisation-Study/dashboard/
+
 ## Structure
 ```
 corpus/               8 policy docs (reused from the RAG Evaluation Suite)
@@ -35,5 +37,3 @@ repeat distribution, the strong/weak tiers standing in for two real models).
 Both files explain exactly how to swap in real `tiktoken` counts and real
 `llm_generate()` calls (from the RAG Evaluation Suite repo) once you have API
 access, without changing the rest of the harness.
-
-Interactive dashboard: https://joyskiruba.github.io/LLM-Cost-Optimisation-Study/dashboard/
