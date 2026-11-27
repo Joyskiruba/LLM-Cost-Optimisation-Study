@@ -35,3 +35,4 @@ repeat distribution, the strong/weak tiers standing in for two real models).
 Both files explain exactly how to swap in real `tiktoken` counts and real
 `llm_generate()` calls (from the RAG Evaluation Suite repo) once you have API
 access, without changing the rest of the harness.
+Interactive dashboard: https://joyskiruba.github.io/LLM-Cost-Optimisation-Study/dashboard/
